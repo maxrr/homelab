@@ -10,8 +10,23 @@ services:
       - 8090:8090
     volumes:
       - /opt/homelab/data/beszel/beszel_data:/beszel_data
+      - /opt/homelab/data/beszel/beszel_socket:/beszel_socket
     # healthcheck:
     #   test: ['CMD', '/beszel', 'health', '--url', 'http://localhost:8090']
     #   interval: 120s
     #   start_period: 10s
     #   timeout: 5s
+
+  beszel-agent:
+    image: henrygd/beszel-agent
+    container_name: beszel-agent
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /opt/homelab/data/beszel/local_agent_data:/var/lib/beszel-agent
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      LISTEN: /beszel_socket/beszel.sock
+      KEY: ${BESZEL_PUBLIC_KEY}
+      TOKEN: ${BESZEL_UNIVERSAL_TOKEN}
+      HUB_URL: http://localhost:8090
