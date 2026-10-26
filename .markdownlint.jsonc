@@ -1,0 +1,4 @@
+{
+  // Allow terminal command formatting without showing output
+  "MD014": false,
+}
