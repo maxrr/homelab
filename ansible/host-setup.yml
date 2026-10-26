@@ -62,10 +62,10 @@
         owner: "{{ target_user  }}"
         group: "{{ target_user  }}"
 
-    - name: Clone homelab repository into /opt/homelab
+    - name: Clone homelab repository into /opt/homelab/repo
       ansible.builtin.git:
         repo: "https://github.com/maxrr/homelab.git"
-        dest: /opt/homelab
+        dest: /opt/homelab/repo
         version: main
         update: true
         accept_newhostkey: true
