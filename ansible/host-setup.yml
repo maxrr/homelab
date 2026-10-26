@@ -24,6 +24,7 @@
           - just
           - rclone
           - restic
+          - vim
         state: present
         update_cache: true
 
