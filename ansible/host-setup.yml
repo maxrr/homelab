@@ -1,0 +1,96 @@
+- name: "Bootstrap node: install Docker and utilities + SSH hardening"
+  hosts: homelab
+  become: true
+
+  vars:
+    # Automatically pulls 'ansible_user' from hosts.ini
+    target_user: "{{ ansible_user }}"
+
+    # Reads your local workstation's public SSH key (adjust filename if using id_rsa.pub)
+    ssh_public_keys:
+      - "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}"
+
+  tasks:
+    # ==========================================================================
+    # 1. PACKAGES & SUDO SETUP
+    # ==========================================================================
+    - name: Install sudo and foundational CLI utilities
+      ansible.builtin.apt:
+        name:
+          - sudo
+          - ca-certificates
+          - curl
+          - git
+          - just
+          - rclone
+          - restic
+        state: present
+        update_cache: true
+
+    # ==========================================================================
+    # 2. DOCKER INSTALLATION
+    # ==========================================================================
+    - name: Check if Docker is already installed
+      ansible.builtin.command: docker --version
+      register: docker_check
+      ignore_errors: true
+      changed_when: false
+
+    - name: Install Docker Engine & Compose plugin via official script
+      ansible.builtin.shell: curl -fsSL https://get.docker.com | sh
+      when: docker_check.rc != 0
+
+    # ==========================================================================
+    # 3. USER GROUPS
+    # ==========================================================================
+    - name: Add user to sudo and docker groups
+      ansible.builtin.user:
+        name: "{{ target_user }}"
+        groups:
+          - sudo
+          - docker
+        append: true
+
+    # ==========================================================================
+    # 4. HOMELAB REPO
+    # ==========================================================================
+    - name: Create /opt/homelab if it doesn't exist
+      ansible.builtin.file:
+        path: /opt/homelab
+        state: directory
+        mode: '0755'
+        owner: "{{ target_user  }}"
+        group: "{{ target_user  }}"
+
+    - name: Clone homelab repository into /opt/homelab
+      ansible.builtin.git:
+        repo: "https://github.com/maxrr/homelab.git"
+        dest: /opt/homelab
+        version: main
+        update: true
+        accept_newhostkey: true
+      become_user: "{{ target_user }}"
+
+    # ==========================================================================
+    # 5. SSH HARDENING
+    # ==========================================================================
+
+    - name: Disable SSH password authentication and root login
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/99-hardening.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+          PermitRootLogin no
+          AuthenticationMethods publickey
+        validate: "/usr/sbin/sshd -t -f %s"
+      notify: Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      ansible.builtin.service:
+        name: ssh
+        state: restarted
